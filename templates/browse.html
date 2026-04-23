@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BookShelf{% if breadcrumbs %} — {{ breadcrumbs[-1].name }}{% endif %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #080c14;
+      --surface:      rgba(255,255,255,0.055);
+      --surface-hover:rgba(255,255,255,0.095);
+      --border:       rgba(255,255,255,0.10);
+      --border-hover: rgba(255,255,255,0.20);
+      --text:         #e8eaf0;
+      --muted:        rgba(232,234,240,0.42);
+      --accent:       #4f9eff;
+      --accent-glow:  rgba(79,158,255,0.20);
+      --amber:        #f5a623;
+      --amber-glow:   rgba(245,166,35,0.18);
+      --red:          #ff6b6b;
+      --green:        #43d9ad;
+      --purple:       #b57cf6;
+      --blur:         blur(18px);
+      --radius:       14px;
+    }
+
+    html { height: 100%; }
+
+    body {
+      min-height: 100%;
+      background: var(--bg);
+      font-family: 'Outfit', sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─────────────────────────────────────────
+       Background
+    ───────────────────────────────────────── */
+    .scene {
+      position: fixed; inset: 0; z-index: 0; overflow: hidden;
+      pointer-events: none;
+    }
+    .scene-grad {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 900px 600px at 10% 0%,   rgba(79,158,255,0.10) 0%, transparent 65%),
+        radial-gradient(ellipse 700px 500px at 90% 100%,  rgba(181,124,246,0.08) 0%, transparent 65%),
+        radial-gradient(ellipse 500px 400px at 55% 50%,   rgba(67,217,173,0.05) 0%, transparent 65%);
+    }
+    /* subtle dot grid */
+    .scene-grid {
+      position: absolute; inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+    }
+
+    /* ─────────────────────────────────────────
+       Layout
+    ───────────────────────────────────────── */
+    .wrap {
+      position: relative; z-index: 1;
+      max-width: 900px; margin: 0 auto;
+      padding: 48px 24px 96px;
+    }
+
+    /* ─────────────────────────────────────────
+       Header
+    ───────────────────────────────────────── */
+    .header {
+      display: flex; align-items: center; gap: 18px;
+      margin-bottom: 40px;
+      animation: up 0.55s cubic-bezier(.22,1,.36,1) both;
+    }
+    .header-icon {
+      flex-shrink: 0; width: 50px; height: 50px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(79,158,255,0.30), rgba(181,124,246,0.25));
+      border: 1px solid rgba(79,158,255,0.30);
+      display: grid; place-items: center;
+      box-shadow: 0 0 28px rgba(79,158,255,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .header-icon svg { width: 24px; height: 24px; }
+    .header-title {
+      font-size: 1.65rem; font-weight: 700; letter-spacing: -0.03em;
+      color: #fff;
+    }
+    .header-sub {
+      margin-top: 3px; font-size: 0.78rem; font-weight: 400;
+      color: var(--muted); font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─────────────────────────────────────────
+       Breadcrumb
+    ───────────────────────────────────────── */
+    .breadcrumb {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
+      padding: 9px 16px; border-radius: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      margin-bottom: 16px; font-size: 0.8rem;
+      animation: up 0.55s 0.06s cubic-bezier(.22,1,.36,1) both;
+    }
+    .breadcrumb a {
+      color: var(--accent); text-decoration: none;
+      padding: 3px 8px; border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .breadcrumb a:hover { background: var(--accent-glow); }
+    .breadcrumb .sep { color: var(--muted); padding: 0 2px; font-size: 0.72rem; }
+    .breadcrumb .crumb-cur { color: var(--muted); padding: 3px 8px; }
+
+    /* ─────────────────────────────────────────
+       Stats
+    ───────────────────────────────────────── */
+    .stats {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 20px;
+      animation: up 0.55s 0.10s cubic-bezier(.22,1,.36,1) both;
+    }
+    .pill {
+      padding: 5px 13px; border-radius: 999px; font-size: 0.74rem;
+      background: var(--surface); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      color: var(--muted); white-space: nowrap;
+    }
+    .pill b { color: var(--text); font-weight: 600; }
+
+    /* ─────────────────────────────────────────
+       File list
+    ───────────────────────────────────────── */
+    .list {
+      display: flex; flex-direction: column; gap: 6px;
+      animation: up 0.55s 0.14s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    .row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 11px 16px; border-radius: var(--radius);
+      background: var(--surface); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      text-decoration: none; color: inherit;
+      transition: background 0.18s, border-color 0.18s, transform 0.15s, box-shadow 0.18s;
+      position: relative; overflow: hidden;
+    }
+    .row::after {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      border-radius: 3px 0 0 3px;
+      background: transparent; transition: background 0.18s;
+    }
+    .row:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
+      transform: translateX(3px);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    }
+    .row.is-folder:hover::after  { background: var(--amber); }
+    .row.is-pdf:hover::after     { background: var(--red); }
+    .row.is-epub:hover::after    { background: var(--green); }
+    .row.is-doc:hover::after,
+    .row.is-text:hover::after    { background: var(--accent); }
+    .row.is-image:hover::after   { background: var(--purple); }
+    .row.is-archive:hover::after { background: var(--amber); }
+    .row.is-file:hover::after    { background: var(--muted); }
+
+    /* icon chip */
+    .chip {
+      flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+      display: grid; place-items: center;
+    }
+    .chip svg { width: 18px; height: 18px; }
+
+    .chip-folder  { background: rgba(245,166,35,0.13);  border: 1px solid rgba(245,166,35,0.22); }
+    .chip-folder svg  { color: var(--amber); }
+    .chip-pdf     { background: rgba(255,107,107,0.13); border: 1px solid rgba(255,107,107,0.22); }
+    .chip-pdf svg     { color: var(--red); }
+    .chip-epub    { background: rgba(67,217,173,0.13);  border: 1px solid rgba(67,217,173,0.22); }
+    .chip-epub svg    { color: var(--green); }
+    .chip-doc     { background: rgba(79,158,255,0.13);  border: 1px solid rgba(79,158,255,0.22); }
+    .chip-doc svg     { color: var(--accent); }
+    .chip-text    { background: rgba(79,158,255,0.10);  border: 1px solid rgba(79,158,255,0.18); }
+    .chip-text svg    { color: var(--accent); }
+    .chip-image   { background: rgba(181,124,246,0.13); border: 1px solid rgba(181,124,246,0.22); }
+    .chip-image svg   { color: var(--purple); }
+    .chip-archive { background: rgba(245,166,35,0.10);  border: 1px solid rgba(245,166,35,0.18); }
+    .chip-archive svg { color: var(--amber); }
+    .chip-file    { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); }
+    .chip-file svg    { color: var(--muted); }
+
+    /* name / meta */
+    .info { flex: 1; min-width: 0; }
+    .name {
+      font-size: 0.88rem; font-weight: 500; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .meta {
+      font-size: 0.72rem; color: var(--muted); margin-top: 1px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* action buttons */
+    .btn {
+      flex-shrink: 0; padding: 5px 14px; border-radius: 8px;
+      font-size: 0.74rem; font-weight: 600; letter-spacing: 0.01em;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+      transition: all 0.18s; font-family: 'Outfit', sans-serif;
+    }
+    .btn svg { width: 13px; height: 13px; }
+
+    .btn-open {
+      background: rgba(245,166,35,0.12); color: var(--amber);
+      border-color: rgba(245,166,35,0.25);
+    }
+    .btn-open:hover {
+      background: rgba(245,166,35,0.22);
+      box-shadow: 0 0 16px rgba(245,166,35,0.22);
+    }
+    .btn-dl {
+      background: rgba(79,158,255,0.12); color: var(--accent);
+      border-color: rgba(79,158,255,0.25);
+    }
+    .btn-dl:hover {
+      background: rgba(79,158,255,0.22);
+      box-shadow: 0 0 16px rgba(79,158,255,0.22);
+    }
+    .btn-zip {
+      background: rgba(67,217,173,0.10); color: var(--green);
+      border-color: rgba(67,217,173,0.22);
+    }
+    .btn-zip:hover {
+      background: rgba(67,217,173,0.20);
+      box-shadow: 0 0 16px rgba(67,217,173,0.20);
+    }
+
+    /* empty state */
+    .empty {
+      text-align: center; padding: 72px 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); border-radius: var(--radius);
+      color: var(--muted); font-size: 0.88rem;
+    }
+    .empty svg { width: 40px; height: 40px; opacity: 0.25; margin-bottom: 14px; display: block; margin-inline: auto; }
+
+    /* ─────────────────────────────────────────
+       Animations
+    ───────────────────────────────────────── */
+    @keyframes up {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─────────────────────────────────────────
+       Scrollbar
+    ───────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+  </style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="scene">
+  <div class="scene-grad"></div>
+  <div class="scene-grid"></div>
+</div>
+
+<!-- SVG icon sprite (hidden) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <!-- folder -->
+  <symbol id="ic-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 7a2 2 0 0 1 2-2h3.17a2 2 0 0 1 1.42.59L11 7h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+  </symbol>
+  <!-- file generic -->
+  <symbol id="ic-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+  </symbol>
+  <!-- pdf -->
+  <symbol id="ic-pdf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>
+    <text x="7.5" y="12" font-size="4.5" font-family="monospace" fill="currentColor" stroke="none">PDF</text>
+  </symbol>
+  <!-- epub / book -->
+  <symbol id="ic-epub" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+  </symbol>
+  <!-- doc / word -->
+  <symbol id="ic-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="8" y1="13" x2="16" y2="13"/>
+    <line x1="8" y1="17" x2="16" y2="17"/>
+    <line x1="8" y1="9"  x2="10" y2="9"/>
+  </symbol>
+  <!-- text / txt / md -->
+  <symbol id="ic-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="17" y1="10" x2="3"  y2="10"/>
+    <line x1="21" y1="6"  x2="3"  y2="6"/>
+    <line x1="21" y1="14" x2="3"  y2="14"/>
+    <line x1="17" y1="18" x2="3"  y2="18"/>
+  </symbol>
+  <!-- image -->
+  <symbol id="ic-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+    <circle cx="8.5" cy="8.5" r="1.5"/>
+    <polyline points="21 15 16 10 5 21"/>
+  </symbol>
+  <!-- archive / zip -->
+  <symbol id="ic-archive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="21 8 21 21 3 21 3 8"/>
+    <rect x="1" y="3" width="22" height="5"/>
+    <line x1="10" y1="12" x2="14" y2="12"/>
+  </symbol>
+  <!-- download arrow -->
+  <symbol id="ic-dl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </symbol>
+  <!-- chevron right -->
+  <symbol id="ic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 18 15 12 9 6"/>
+  </symbol>
+  <!-- zip/pack icon -->
+  <symbol id="ic-zip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 8v13H3V8"/>
+    <path d="M1 3h22v5H1z"/>
+    <path d="M10 12h4"/>
+  </symbol>
+  <!-- home -->
+  <symbol id="ic-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    <polyline points="9 22 9 12 15 12 15 22"/>
+  </symbol>
+  <!-- books / shelf -->
+  <symbol id="ic-shelf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    <line x1="12" y1="6" x2="16" y2="6"/>
+    <line x1="12" y1="10" x2="16" y2="10"/>
+  </symbol>
+</svg>
+
+<div class="wrap">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-icon">
+      <svg><use href="#ic-shelf"/></svg>
+    </div>
+    <div>
+      <div class="header-title">BookShelf</div>
+      <div class="header-sub">{{ share_path }}</div>
+    </div>
+  </header>
+
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb" aria-label="breadcrumb">
+    <a href="/browse/"><svg width="12" height="12"><use href="#ic-home"/></svg>&nbsp;Root</a>
+    {% for crumb in breadcrumbs %}
+      <span class="sep">›</span>
+      {% if loop.last %}
+        <span class="crumb-cur">{{ crumb.name }}</span>
+      {% else %}
+        <a href="/browse/{{ crumb.path }}">{{ crumb.name }}</a>
+      {% endif %}
+    {% endfor %}
+  </nav>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="pill"><b>{{ folder_count }}</b> folders</div>
+    <div class="pill"><b>{{ file_count }}</b> files</div>
+    <div class="pill"><b>{{ total_size }}</b> total</div>
+  </div>
+
+  <!-- File list -->
+  <div class="list">
+    {% if not items %}
+      <div class="empty">
+        <svg><use href="#ic-folder"/></svg>
+        This folder is empty.
+      </div>
+    {% endif %}
+
+    {% for item in items %}
+    <div class="row is-{{ item.icon_type }}">
+
+      <!-- Icon chip -->
+      <div class="chip chip-{{ item.icon_type }}">
+        <svg><use href="#ic-{{ item.icon_type }}"/></svg>
+      </div>
+
+      <!-- Name + meta -->
+      <div class="info">
+        <div class="name" title="{{ item.name }}">{{ item.name }}</div>
+        <div class="meta">{{ item.meta }}</div>
+      </div>
+
+      <!-- Actions -->
+      {% if item.is_dir %}
+        <a class="btn btn-zip" href="/download/{{ item.rel_path }}">
+          <svg><use href="#ic-zip"/></svg> ZIP
+        </a>
+        <a class="btn btn-open" href="/browse/{{ item.rel_path }}">
+          Open <svg><use href="#ic-chevron"/></svg>
+        </a>
+      {% else %}
+        <a class="btn btn-dl" href="/download/{{ item.rel_path }}">
+          <svg><use href="#ic-dl"/></svg> Download
+        </a>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+</body>
+</html>
