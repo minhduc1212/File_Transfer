@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Setup — Quak File Transfer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #080c14;
+      --surface:      rgba(255,255,255,0.055);
+      --surface-hover:rgba(255,255,255,0.095);
+      --border:       rgba(255,255,255,0.10);
+      --border-hover: rgba(255,255,255,0.20);
+      --text:         #e8eaf0;
+      --muted:        rgba(232,234,240,0.42);
+      --accent:       #4f9eff;
+      --accent-glow:  rgba(79,158,255,0.20);
+      --amber:        #f5a623;
+      --amber-glow:   rgba(245,166,35,0.18);
+      --red:          #ff6b6b;
+      --green:        #43d9ad;
+      --purple:       #b57cf6;
+      --blur:         blur(18px);
+      --radius:       14px;
+    }
+
+    html { height: 100%; }
+
+    body {
+      min-height: 100%;
+      background: var(--bg);
+      font-family: 'Outfit', sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ─── Background ─── */
+    .scene {
+      position: fixed; inset: 0; z-index: 0; overflow: hidden;
+      pointer-events: none;
+    }
+    .scene-grad {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 900px 600px at 10% 0%,   rgba(79,158,255,0.10) 0%, transparent 65%),
+        radial-gradient(ellipse 700px 500px at 90% 100%,  rgba(181,124,246,0.08) 0%, transparent 65%),
+        radial-gradient(ellipse 500px 400px at 55% 50%,   rgba(67,217,173,0.05) 0%, transparent 65%);
+    }
+    .scene-grid {
+      position: absolute; inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+    }
+
+    /* ─── Layout ─── */
+    .wrap {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 520px;
+      padding: 24px;
+    }
+
+    /* ─── Header ─── */
+    .header {
+      display: flex; align-items: center; gap: 18px;
+      margin-bottom: 32px;
+      animation: up 0.55s cubic-bezier(.22,1,.36,1) both;
+    }
+    .header-icon {
+      flex-shrink: 0; width: 50px; height: 50px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(79,158,255,0.30), rgba(181,124,246,0.25));
+      border: 1px solid rgba(79,158,255,0.30);
+      display: grid; place-items: center;
+      box-shadow: 0 0 28px rgba(79,158,255,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .header-icon svg { width: 24px; height: 24px; }
+    .header-title {
+      font-size: 1.65rem; font-weight: 700; letter-spacing: -0.03em;
+      color: #fff;
+    }
+    .header-sub {
+      margin-top: 3px; font-size: 0.78rem; font-weight: 400;
+      color: var(--muted); font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─── Card ─── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      border-radius: var(--radius);
+      padding: 28px;
+      animation: up 0.55s 0.08s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    .card-label {
+      font-size: 0.8rem; font-weight: 500; color: var(--muted);
+      letter-spacing: 0.05em; text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .card-desc {
+      font-size: 0.88rem; color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    /* ─── Error banner ─── */
+    .error-banner {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 11px 14px; border-radius: 10px;
+      background: rgba(255,107,107,0.10);
+      border: 1px solid rgba(255,107,107,0.28);
+      margin-bottom: 20px;
+      font-size: 0.82rem; color: var(--red);
+      animation: up 0.35s cubic-bezier(.22,1,.36,1) both;
+    }
+    .error-banner svg { flex-shrink: 0; width: 15px; height: 15px; margin-top: 1px; }
+    .error-banner strong { font-weight: 600; }
+
+    /* ─── Input group ─── */
+    .input-group {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .input-icon {
+      position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+      display: flex;
+    }
+    .input-icon svg { width: 15px; height: 15px; }
+
+    .path-input {
+      width: 100%;
+      padding: 11px 14px 11px 38px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+    }
+    .path-input::placeholder { color: var(--muted); }
+    .path-input:focus {
+      border-color: rgba(79,158,255,0.45);
+      background: rgba(79,158,255,0.05);
+      box-shadow: 0 0 0 3px rgba(79,158,255,0.10);
+    }
+
+    /* ─── Hint pills ─── */
+    .hints {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 24px;
+    }
+    .hint-label {
+      font-size: 0.72rem; color: var(--muted);
+      margin-bottom: 8px; display: block;
+    }
+    .hint {
+      padding: 4px 11px; border-radius: 999px;
+      font-size: 0.72rem; font-family: 'JetBrains Mono', monospace;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--muted); cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .hint:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
+      color: var(--text);
+    }
+
+    /* ─── Submit button ─── */
+    .btn-submit {
+      width: 100%;
+      padding: 11px 20px;
+      border-radius: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem; font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #fff;
+      background: linear-gradient(135deg, rgba(79,158,255,0.80), rgba(181,124,246,0.70));
+      border: 1px solid rgba(79,158,255,0.40);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity 0.18s, box-shadow 0.18s, transform 0.15s;
+      box-shadow: 0 0 24px rgba(79,158,255,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .btn-submit svg { width: 16px; height: 16px; }
+    .btn-submit:hover {
+      opacity: 0.92;
+      box-shadow: 0 0 36px rgba(79,158,255,0.30), inset 0 1px 0 rgba(255,255,255,0.12);
+      transform: translateY(-1px);
+    }
+    .btn-submit:active { transform: translateY(0); opacity: 1; }
+
+    /* ─── Divider ─── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 24px 0;
+    }
+
+    /* ─── Info row ─── */
+    .info-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.76rem; color: var(--muted);
+    }
+    .info-row svg { width: 13px; height: 13px; flex-shrink: 0; color: var(--accent); }
+    .info-row + .info-row { margin-top: 8px; }
+
+    /* ─── Animations ─── */
+    @keyframes up {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+  </style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="scene">
+  <div class="scene-grad"></div>
+  <div class="scene-grid"></div>
+</div>
+
+<!-- SVG sprite -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="ic-shelf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    <line x1="12" y1="6" x2="16" y2="6"/>
+    <line x1="12" y1="10" x2="16" y2="10"/>
+  </symbol>
+  <symbol id="ic-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 7a2 2 0 0 1 2-2h3.17a2 2 0 0 1 1.42.59L11 7h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+  </symbol>
+  <symbol id="ic-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="8" x2="12" y2="12"/>
+    <line x1="12" y1="16" x2="12.01" y2="16"/>
+  </symbol>
+  <symbol id="ic-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="18" cy="5" r="3"/>
+    <circle cx="6" cy="12" r="3"/>
+    <circle cx="18" cy="19" r="3"/>
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+  </symbol>
+  <symbol id="ic-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="16" x2="12" y2="12"/>
+    <line x1="12" y1="8" x2="12.01" y2="8"/>
+  </symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </symbol>
+</svg>
+
+<div class="wrap">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-icon">
+      <svg><use href="#ic-shelf"/></svg>
+    </div>
+    <div>
+      <div class="header-title">Quak File Transfer</div>
+      <div class="header-sub">initial setup</div>
+    </div>
+  </header>
+
+  <!-- Main card -->
+  <div class="card">
+
+    <p class="card-desc">
+      Enter the full absolute path of the directory you want to share over the network.
+    </p>
+
+    <!-- Error banner (Django template) -->
+    {% if error %}
+    <div class="error-banner">
+      <svg><use href="#ic-alert"/></svg>
+      <span><strong>Error:</strong> {{ error }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Form -->
+    <form method="POST">
+
+      <div class="card-label">Directory path</div>
+      <div class="input-group">
+        <span class="input-icon"><svg><use href="#ic-folder"/></svg></span>
+        <input
+          class="path-input"
+          type="text"
+          name="path"
+          placeholder="e.g. C:\Users\Public\Downloads"
+          autocomplete="off"
+          spellcheck="false"
+          required
+        />
+      </div>
+
+      <!-- Example hint chips -->
+      <span class="hint-label">Quick examples</span>
+      <div class="hints">
+        <span class="hint" onclick="fillPath('C:\\Users\\Public\\Downloads')">C:\Users\Public\Downloads</span>
+        <span class="hint" onclick="fillPath('D:\\Shared')">D:\Shared</span>
+        <span class="hint" onclick="fillPath('/home/user/share')">/home/user/share</span>
+        <span class="hint" onclick="fillPath('/mnt/data')">/mnt/data</span>
+      </div>
+
+      <button type="submit" class="btn-submit">
+        <svg><use href="#ic-share"/></svg>
+        Start Sharing
+      </button>
+
+    </form>
+
+    <div class="divider"></div>
+
+    <div class="info-row">
+      <svg><use href="#ic-info"/></svg>
+      The directory and all its contents will be accessible on your local network.
+    </div>
+    <div class="info-row">
+      <svg><use href="#ic-check"/></svg>
+      Make sure the path exists and you have read permissions.
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  function fillPath(p) {
+    document.querySelector('.path-input').value = p;
+    document.querySelector('.path-input').focus();
+  }
+</script>
+
+</body>
+</html>

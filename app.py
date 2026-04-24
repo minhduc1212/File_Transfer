@@ -1,11 +1,12 @@
 import os
 import shutil
 import tempfile
-from flask import Flask, send_file, abort, render_template, redirect, url_for
+from flask import Flask, send_file, abort, render_template, redirect, url_for, request
+from flask_cloudflared import run_with_cloudflared
 
 app = Flask(__name__)
-
-SHARE_PATH = os.path.normpath(r'F:\Books')
+run_with_cloudflared(app)
+app.config['SHARE_PATH'] = None
 
 
 def human_size(num_bytes):
@@ -37,14 +38,35 @@ def icon_type_for(name, is_dir):
 
 def safe_path(subpath):
     """Resolve subpath inside SHARE_PATH and guard against path traversal."""
+    share_path = app.config['SHARE_PATH']
     if subpath:
-        joined = os.path.normpath(os.path.join(SHARE_PATH, subpath))
+        joined = os.path.normpath(os.path.join(share_path, subpath))
     else:
-        joined = SHARE_PATH
+        joined = share_path
     # Must still start with SHARE_PATH
-    if not joined.startswith(SHARE_PATH):
+    if not joined.startswith(share_path):
         abort(403)
     return joined
+
+
+@app.before_request
+def require_setup():
+    # Redirect to setup if SHARE_PATH is not yet configured
+    if not app.config.get('SHARE_PATH') and request.endpoint and request.endpoint not in ('setup', 'static'):
+        return redirect(url_for('setup'))
+
+
+@app.route('/setup', methods=['GET', 'POST'])
+def setup():
+    error = None
+    if request.method == 'POST':
+        path = request.form.get('path', '').strip()
+        if os.path.isdir(path):
+            app.config['SHARE_PATH'] = os.path.normpath(path)
+            return redirect(url_for('index'))
+        else:
+            error = "The provided path is not a valid directory. Please try again."
+    return render_template('setup.html', error=error)
 
 
 @app.route('/')
@@ -76,7 +98,7 @@ def browse(subpath):
     folder_count = file_count = 0
 
     for e in raw_entries:
-        rel = os.path.relpath(e.path, SHARE_PATH).replace('\\', '/')
+        rel = os.path.relpath(e.path, app.config['SHARE_PATH']).replace('\\', '/')
         is_dir = e.is_dir(follow_symlinks=False)
         itype = icon_type_for(e.name, is_dir)
 
@@ -118,7 +140,7 @@ def browse(subpath):
         folder_count=folder_count,
         file_count=file_count,
         total_size=human_size(total_bytes),
-        share_path=SHARE_PATH,
+        share_path=app.config['SHARE_PATH'],
     )
 
 
