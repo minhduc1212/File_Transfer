@@ -1,12 +1,32 @@
+import io
 import os
+import re
 import shutil
+import subprocess
 import tempfile
-from flask import Flask, send_file, abort, render_template, redirect, url_for, request
-from flask_cloudflared import run_with_cloudflared
+import threading
+
+import qrcode
+from flask import Flask, Response, send_file, abort, render_template, redirect, url_for, request
 
 app = Flask(__name__)
-run_with_cloudflared(app)
 app.config['SHARE_PATH'] = None
+app.config['TUNNEL_URL'] = None
+
+
+def _start_cloudflared(port=5000):
+    proc = subprocess.Popen(
+        ['cloudflared', 'tunnel', '--url', f'http://localhost:{port}'],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    )
+    for line in proc.stdout:
+        print(line, end='')
+        match = re.search(r'https://[^\s]+\.trycloudflare\.com', line)
+        if match:
+            app.config['TUNNEL_URL'] = match.group(0)
+
+
+threading.Thread(target=_start_cloudflared, args=(5000,), daemon=True).start()
 
 
 def human_size(num_bytes):
@@ -47,6 +67,16 @@ def safe_path(subpath):
     if not joined.startswith(share_path):
         abort(403)
     return joined
+
+
+@app.route('/qrcode')
+def get_qrcode():
+    url = app.config.get('TUNNEL_URL') or request.host_url.rstrip('/')
+    img = qrcode.make(url, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    return Response(buf.read(), mimetype='image/png')
 
 
 @app.before_request
@@ -141,6 +171,7 @@ def browse(subpath):
         file_count=file_count,
         total_size=human_size(total_bytes),
         share_path=app.config['SHARE_PATH'],
+        tunnel_url=app.config.get('TUNNEL_URL') or request.host_url.rstrip('/'),
     )
 
 
